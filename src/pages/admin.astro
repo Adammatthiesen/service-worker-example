@@ -1,0 +1,422 @@
+---
+import { getUserFromCookies, hasMinimumRole } from '../lib/auth';
+
+const user = await getUserFromCookies(Astro.cookies);
+
+// Redirect if not authenticated or not a moderator/admin
+if (!user || !hasMinimumRole(user, 'moderator')) {
+  return Astro.redirect('/login?redirect=/admin');
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Push Notifications</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      background: #f5f7fa;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.3rem;
+    }
+    
+    .header .user-info {
+      opacity: 0.9;
+      font-size: 0.9rem;
+    }
+    
+    .header .logout {
+      float: right;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    
+    .header .logout:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+    
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .card h2 {
+      color: #667eea;
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 0.3rem;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    input, select, textarea {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+    
+    button:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .alert {
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    
+    .alert.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .alert.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    
+    .history-table th {
+      background: #f8f9fa;
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    .history-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .history-table tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    
+    .badge.all { background: #e7f3ff; color: #0066cc; }
+    .badge.user { background: #fff3cd; color: #856404; }
+    .badge.role { background: #d4edda; color: #155724; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <button class="logout" onclick="logout()">Logout</button>
+    <h1>🔔 Push Notification Admin</h1>
+    <div class="user-info">
+      Logged in as: <strong>{user.displayName || user.username}</strong> ({user.role})
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="alert" id="alert"></div>
+    
+    <div class="grid">
+      <!-- Send Notification Form -->
+      <div class="card">
+        <h2>Send Notification</h2>
+        <form id="sendForm">
+          <div class="form-group">
+            <label for="targetType">Target Audience</label>
+            <select id="targetType" required>
+              <option value="all">All Users</option>
+              <option value="role">Specific Role</option>
+              <option value="user">Specific User ID</option>
+            </select>
+          </div>
+          
+          <div class="form-group" id="targetValueGroup" style="display: none;">
+            <label for="targetValue">Target Value</label>
+            <input type="text" id="targetValue" placeholder="Enter role or user ID" />
+          </div>
+          
+          <div class="form-group">
+            <label for="title">Notification Title</label>
+            <input type="text" id="title" required maxlength="100" placeholder="Important Update" />
+          </div>
+          
+          <div class="form-group">
+            <label for="message">Message</label>
+            <textarea id="message" required maxlength="300" placeholder="Your notification message..."></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="url">Click URL (optional)</label>
+            <input type="url" id="url" placeholder="https://example.com/page" />
+          </div>
+          
+          <button type="submit">Send Notification</button>
+        </form>
+      </div>
+      
+      <!-- Quick Actions -->
+      <div class="card">
+        <h2>Role Quick Actions</h2>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <button onclick="sendToRole('admin')">Send to Admins</button>
+          <button onclick="sendToRole('moderator')">Send to Moderators</button>
+          <button onclick="sendToRole('user')">Send to Users</button>
+          <button onclick="sendToRole('subscriber')">Send to Subscribers</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Notification History -->
+    <div class="card">
+      <h2>Recent Notifications</h2>
+      <div id="historyContainer">Loading history...</div>
+    </div>
+  </div>
+  
+  <script>
+    const form = document.getElementById('sendForm') as HTMLFormElement;
+    const targetType = document.getElementById('targetType') as HTMLSelectElement;
+    const targetValueGroup = document.getElementById('targetValueGroup') as HTMLDivElement;
+    const targetValue = document.getElementById('targetValue') as HTMLInputElement;
+    const alertEl = document.getElementById('alert') as HTMLDivElement;
+    // Show/hide target value input
+    targetType.addEventListener('change', () => {
+      if (targetType.value === 'all') {
+        targetValueGroup.style.display = 'none';
+        targetValue.required = false;
+      } else {
+        targetValueGroup.style.display = 'block';
+        targetValue.required = true;
+        targetValue.placeholder = targetType.value === 'role' 
+          ? 'e.g., admin, moderator, user, subscriber' 
+          : 'Enter user ID';
+      }
+    });
+    
+    // Handle form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const data = {
+        targetType: targetType.value,
+        targetValue: targetValue.value || null,
+        title: (document.getElementById('title') as HTMLInputElement).value,
+        message: (document.getElementById('message') as HTMLTextAreaElement).value,
+        url: (document.getElementById('url') as HTMLInputElement).value || '/',
+      };
+      
+      const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      
+      try {
+        const response = await fetch('/api/push/send-targeted', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          showAlert('success', `✅ ${result.message}`);
+          form.reset();
+          loadHistory();
+        } else {
+          showAlert('error', `❌ Error: ${result.error}`);
+        }
+      } catch (error) {
+        showAlert('error', `❌ Failed to send: ${(error as Error).message}`);
+      }
+      
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send Notification';
+    });
+    
+    // Quick send to role
+    async function sendToRole(role: any) {
+      const title = prompt(`Title for ${role} notification:`, 'Important Update');
+      if (!title) return;
+      
+      const message = prompt(`Message for ${role}s:`, 'You have a new update.');
+      if (!message) return;
+      
+      try {
+        const response = await fetch('/api/push/send-targeted', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetType: 'role',
+            targetValue: role,
+            title,
+            message,
+            url: '/',
+          }),
+        });
+        
+        const result = await response.json();
+        if (response.ok) {
+          showAlert('success', `✅ Sent to ${result.recipients} ${role}(s)`);
+          loadHistory();
+        } else {
+          showAlert('error', `❌ Error: ${result.error}`);
+        }
+      } catch (error) {
+        showAlert('error', `❌ Failed: ${(error as Error).message}`);
+      }
+    }
+    
+    // Load notification history
+    async function loadHistory() {
+      try {
+        const response = await fetch('/api/push/history?limit=20');
+        const data = await response.json();
+        
+        if (data.notifications && data.notifications.length > 0) {
+          const html = `
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Title</th>
+                  <th>Target</th>
+                  <th>Sent By</th>
+                  <th>Results</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.notifications.map((n: { sentAt: string | number | Date; title: any; targetType: any; targetValue: any; senderName: any; successCount: any; failureCount: any; recipientCount: any; }) => `
+                  <tr>
+                    <td>${new Date(n.sentAt).toLocaleString()}</td>
+                    <td>${n.title}</td>
+                    <td>
+                      <span class="badge ${n.targetType}">${n.targetType}</span>
+                      ${n.targetValue ? `: ${n.targetValue}` : ''}
+                    </td>
+                    <td>${n.senderName}</td>
+                    <td>
+                      ✅ ${n.successCount} / ❌ ${n.failureCount}
+                      <br><small>${n.recipientCount} recipients</small>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          (document.getElementById('historyContainer') as HTMLDivElement).innerHTML = html;
+        } else {
+          (document.getElementById('historyContainer') as HTMLDivElement).innerHTML = '<p>No notifications sent yet.</p>';
+        }
+      } catch (error) {
+        (document.getElementById('historyContainer') as HTMLDivElement).innerHTML = '<p>Failed to load history</p>';
+      }
+    }
+    
+    // Show alert message
+    function showAlert(type: string, message: string | null) {
+      alertEl.className = `alert ${type}`;
+      alertEl.textContent = message;
+      alertEl.style.display = 'block';
+      setTimeout(() => {
+        alertEl.style.display = 'none';
+      }, 5000);
+    }
+    
+    // Logout
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    }
+    
+    // Load history on page load
+    loadHistory();
+  </script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+---
+import PushManager from '../components/PushManager.astro';
+import { getUserFromCookies } from '../lib/auth';
+
+const user = await getUserFromCookies(Astro.cookies);
+
+// Redirect to login if not authenticated
+if (!user) {
+  return Astro.redirect('/login?redirect=/');
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astro Push Notifications Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      padding: 2rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #333;
+    }
+    
+    .container {
+      display: block;
+      max-width: 800px;
+      margin: 0 auto;
+      margin-top: 4rem;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    h1 {
+      color: #667eea;
+      margin-bottom: 0.5rem;
+      font-size: 2rem;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 2rem;
+      font-size: 1rem;
+    }
+    
+    .status {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      font-weight: 500;
+    }
+    
+    .status.subscribed {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.not-subscribed {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    button.danger {
+      background: #dc3545;
+    }
+    
+    button.danger:hover {
+      background: #c82333;
+    }
+    
+    .info {
+      background: #e7f3ff;
+      border-left: 4px solid #2196F3;
+      padding: 1rem;
+      margin: 1.5rem 0;
+      border-radius: 4px;
+    }
+    
+    .info h3 {
+      color: #1976D2;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    
+    .info p {
+      color: #555;
+      margin-bottom: 0.5rem;
+    }
+    
+    .info ul {
+      margin-left: 1.5rem;
+      color: #555;
+    }
+    
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div style="text-align: right; margin-bottom: 1rem;">
+      <span style="color: #666;">Logged in as: <strong>{user.displayName || user.username}</strong> ({user.role})</span>
+      {user.role === 'admin' || user.role === 'moderator' ? (
+        <a href="/admin" style="margin: 0 1rem; color: #667eea; text-decoration: none; font-weight: 600;">Admin Dashboard</a>
+      ) : null}
+      <button onclick="logout()" style="padding: 0.5rem 1rem; width: auto;">Logout</button>
+    </div>
+    
+    <h1>🔔 Astro Push Notifications</h1>
+    <p class="subtitle">Service Worker + AstroDB Example</p>
+    
+    <div id="status" class="status not-subscribed">
+      Checking subscription status...
+    </div>
+    
+    <div class="buttons">
+      <button id="subscribeBtn" disabled>
+        <span class="btn-text">Enable Notifications</span>
+      </button>
+      <button id="unsubscribeBtn" class="danger" style="display: none;" disabled>
+        Disable Notifications
+      </button>
+      <button id="testBtn" style="display: none;">
+        Send Test Notification
+      </button>
+    </div>
+    
+    <div class="info">
+      <h3>How it works</h3>
+      <p>This demo shows how to implement web push notifications in an Astro project:</p>
+      <ul>
+        <li><strong>Service Worker</strong> (<code>/sw.js</code>) handles push events</li>
+        <li><strong>AstroDB</strong> stores push subscriptions</li>
+        <li><strong>Web Push</strong> library sends notifications via VAPID</li>
+        <li><strong>API Routes</strong> manage subscriptions and sending</li>
+      </ul>
+    </div>
+  </div>
+  <PushManager />
+  <script>
+    const statusEl = document.getElementById('status') as HTMLDivElement;
+    const subscribeBtn = document.getElementById('subscribeBtn') as HTMLButtonElement;
+    const unsubscribeBtn = document.getElementById('unsubscribeBtn') as HTMLButtonElement;
+    const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
+
+    // Update UI based on subscription status
+    async function updateUI() {
+
+      console.log('Checking subscription status...');
+
+      const isSubscribed = await window.PushManager.checkSubscriptionStatus();
+
+      console.log('Subscription status:', isSubscribed);
+      
+      if (isSubscribed) {
+        statusEl.textContent = '✅ You are subscribed to push notifications';
+        statusEl.className = 'status subscribed';
+        subscribeBtn.style.display = 'none';
+        unsubscribeBtn.style.display = 'inline-block';
+        testBtn.style.display = 'inline-block';
+      } else {
+        statusEl.textContent = '❌ You are not subscribed to push notifications';
+        statusEl.className = 'status not-subscribed';
+        subscribeBtn.style.display = 'inline-block';
+        unsubscribeBtn.style.display = 'none';
+        testBtn.style.display = 'none';
+      }
+      
+      subscribeBtn.disabled = false;
+      unsubscribeBtn.disabled = false;
+    }
+    
+    // Subscribe button handler
+    subscribeBtn.addEventListener('click', async () => {
+      const btnText = subscribeBtn.querySelector('.btn-text') as HTMLSpanElement;
+      const originalText = btnText.textContent;
+      btnText.innerHTML = '<span class="loading"></span> Subscribing...';
+      subscribeBtn.disabled = true;
+      
+      const success = await window.PushManager.subscribeToPush();
+      
+      if (success) {
+        alert('Successfully subscribed to push notifications!');
+        await updateUI();
+      }
+      
+      btnText.textContent = originalText;
+      subscribeBtn.disabled = false;
+    });
+    
+    // Unsubscribe button handler
+    unsubscribeBtn.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to unsubscribe from push notifications?')) {
+        return;
+      }
+      
+      unsubscribeBtn.disabled = true;
+      const success = await window.PushManager.unsubscribeFromPush();
+      
+      if (success) {
+        alert('Successfully unsubscribed from push notifications');
+        await updateUI();
+      }
+      
+      unsubscribeBtn.disabled = false;
+    });
+    
+    // Test notification button handler
+    testBtn.addEventListener('click', async () => {
+      testBtn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/send-test-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+          alert('Test notification sent! Check your notifications.');
+        } else {
+          const error = await response.text();
+          alert('Error sending notification: ' + error);
+        }
+      } catch (error) {
+        alert('Error: ' + (error as Error).message);
+      }
+      
+      testBtn.disabled = false;
+    });
+    
+    // Logout function
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    }
+    
+    // Initialize UI on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      await updateUI();
+    });
+
+  </script>
+</body>
+</html>

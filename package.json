@@ -1,0 +1,25 @@
+{
+    "name": "astro-service-worker-push-example",
+    "version": "0.1.0",
+    "type": "module",
+    "private": true,
+    "packageManager": "pnpm@10.17.0",
+    "scripts": {
+        "dev": "astro dev",
+        "build": "astro build",
+        "preview": "astro preview",
+        "astro": "astro",
+        "db:push": "astro db push --remote",
+        "generate-vapid": "node scripts/generate-vapid.js"
+    },
+    "dependencies": {
+        "@astrojs/db": "^0.18.0",
+        "astro": "^5.14.6",
+        "bcryptjs": "^3.0.2",
+        "web-push": "^3.6.7",
+        "sharp": "^0.34.4"
+    },
+    "devDependencies": {
+        "@types/web-push": "^3.6.4"
+    }
+}
