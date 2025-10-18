@@ -1,4 +1,4 @@
-# 🔔 Astro Push Notifications CMS
+# 🔔 Astro Push Notifications Demo
 
 A complete CMS-ready example of implementing web push notifications in an Astro project with **user authentication**, **role-based permissions**, and **AstroDB** for data storage.
 
