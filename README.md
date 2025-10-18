@@ -1,5 +1,8 @@
 # 🔔 Astro Push Notifications Demo
 
+<img width="2321" height="1203" alt="image" src="https://github.com/user-attachments/assets/02422127-f590-4ca9-9b91-79cd1a0cf573" />
+
+
 A complete CMS-ready example of implementing web push notifications in an Astro project with **user authentication**, **role-based permissions**, and **AstroDB** for data storage.
 
 ## Features
