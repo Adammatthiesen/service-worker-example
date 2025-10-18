@@ -371,31 +371,6 @@ This example can be integrated into any CMS by:
    - Trigger notifications on content publish, user actions, etc.
    - Schedule notifications using your CMS cron/scheduler
 
-### Example: WordPress Integration
-
-```php
-// Send notification on post publish
-add_action('publish_post', 'send_push_notification');
-
-function send_push_notification($post_id) {
-    $post = get_post($post_id);
-    
-    $data = array(
-        'targetType' => 'role',
-        'targetValue' => 'subscriber',
-        'title' => 'New Post Published',
-        'message' => $post->post_title,
-        'url' => get_permalink($post_id)
-    );
-    
-    wp_remote_post('https://your-astro-app.com/api/push/send-targeted', array(
-        'headers' => array('Content-Type' => 'application/json'),
-        'body' => json_encode($data),
-        'cookies' => array('session_token' => get_admin_session_token())
-    ));
-}
-```
-
 ### Example: Node.js CMS Integration
 
 ```javascript
