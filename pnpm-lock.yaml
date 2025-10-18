@@ -24,6 +24,9 @@ importers:
         specifier: ^3.6.7
         version: 3.6.7
     devDependencies:
+      '@types/node':
+        specifier: ^24.8.1
+        version: 24.8.1
       '@types/web-push':
         specifier: ^3.6.4
         version: 3.6.4

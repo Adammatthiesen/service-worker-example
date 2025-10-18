@@ -139,29 +139,29 @@ Visit `http://localhost:4321` and login with one of the demo accounts.
 
 ```
 ├── db/
-│   ├── config.ts          # AstroDB schema (Users, Sessions, Subscriptions, Logs)
-│   └── seed.ts            # Demo user seed data
-├── public/
-│   ├── sw.js              # Service worker for push events
-│   └── push-client.js     # Client-side subscription management
+│   ├── config.ts                        # AstroDB schema (Users, Sessions, Subscriptions, Logs)
+│   └── seed.ts                          # Demo user seed data
 ├── scripts/
-│   └── generate-vapid.js  # VAPID key generation utility
+│   └── generate-vapid.js                # VAPID key generation utility
 ├── src/
+│   ├── components/
+│   │   └── PushManager.astro            # Client-side subscription management
 │   ├── lib/
-│   │   └── auth.ts        # Authentication utilities
+│   │   └── auth.ts                      # Authentication utilities
 │   └── pages/
-│       ├── index.astro    # User dashboard
-│       ├── login.astro    # Login page
-│       ├── admin.astro    # Admin dashboard
+│       ├── index.astro                  # User dashboard
+│       ├── login.astro                  # Login page
+│       ├── admin.astro                  # Admin dashboard
+|       ├── sw.js.ts                     # Service worker for push events
 │       └── api/
 │           ├── auth/
-│           │   ├── login.ts
-│           │   ├── logout.ts
-│           │   └── me.ts
+│           │   ├── login.ts             # Login Endpoint
+│           │   ├── logout.ts            # Logout endpoint
+│           │   └── me.ts                # Endpoint for info about current user
 │           └── push/
 │               ├── send-targeted.ts     # Targeted push endpoint
 │               └── history.ts           # Notification history
-├── astro.config.mjs       # Astro config with DB integration
+├── astro.config.mjs                     # Astro config with DB integration
 └── package.json
 ```
 
@@ -204,7 +204,7 @@ Visit `http://localhost:4321` and login with one of the demo accounts.
 
 ### 1. Service Worker Registration
 
-The client (`public/push-client.js`) registers a service worker (`public/sw.js`) that:
+The client (`src/component/PushManager`) registers a service worker (`src/pages/sw.js.ts`) that:
 - Listens for `push` events
 - Displays notifications using the Notifications API
 - Handles notification clicks
